@@ -1,131 +1,95 @@
-# Purple Contribution Graph (SNK-Inspired, No Snake)
+# workout_cubes_plugin
 
-This setup creates a custom contribution graph image for your GitHub profile README:
-- normal contribution days = green
-- days with commits to one target repo = neon purple
-- GitHub-style day-square layout
-- no snake animation
+Reusable GitHub profile graph plugin.
 
-It works on a free GitHub account.
+It generates a GitHub-style contribution SVG where commits from one chosen target repo are shown in neon purple.
 
-## What this changes
+## How it works
 
-This does not modify GitHub's built-in contribution chart.
-It generates `assets/github-contribution-purple.svg` and displays that image in your profile README.
+- `TARGET_REPO` is the repo you want to highlight (for example `StefanNa/MySportacus`).
+- The SVG is generated in your profile repo (`<username>/<username>`) as `assets/github-contribution-purple.svg`.
+- Your profile `README.md` embeds that SVG.
 
-## Bulletproof Setup (StefanNa example)
-
-Use these exact values:
-- profile repo: `StefanNa/StefanNa`
-- profile username: `StefanNa`
-- target repo: `StefanNa/MySportacus`
-
-### 1. Confirm profile repo exists and is public
-
-Repo must be exactly `<username>/<username>`:
-- `StefanNa/StefanNa`
-
-`README.md` must be on the default branch (`main`).
-
-### 2. Copy scaffold files into profile repo
-
-From local machine:
+## Quickstart (3 commands)
 
 ```bash
-cp -R \
-  /home/stefan/projects/cubes_plugin/.github \
-  /home/stefan/projects/cubes_plugin/scripts \
-  /home/stefan/projects/cubes_plugin/package.json \
-  /home/stefan/projects/cubes_plugin/.gitignore \
-  /home/stefan/projects/StefanNa/
+# 1) In your profile repo, add this plugin as a submodule
+cd /path/to/<username>
+git submodule add https://github.com/StefanNa/workout_cubes_plugin.git tools/workout_cubes_plugin
 
-mkdir -p /home/stefan/projects/StefanNa/assets
+# 2) Copy the workflow from plugin into your profile repo
+cp tools/workout_cubes_plugin/.github/workflows/update-profile-graph.yml .github/workflows/update-profile-graph.yml
+
+# 3) Configure profile variables in one step
+./tools/workout_cubes_plugin/scripts/setup/bootstrap.sh \
+  --profile-repo <username>/<username> \
+  --target-repo <owner>/<repo> \
+  --tz Europe/Berlin
 ```
 
-### 3. Put the graph block into profile README
-
-Edit `/home/stefan/projects/StefanNa/README.md` and include:
+## Profile README block
 
 ```md
 ## Workout Contribution Graph
 ![Workout contribution graph](./assets/github-contribution-purple.svg)
 
 Green = non-target repo activity  
-Neon purple = commits to StefanNa/MySportacus
+Neon purple = commits to <owner>/<repo>
 ```
 
-### 4. Add repository variables (Actions -> Variables)
+## Required profile repo variables
 
-In `StefanNa/StefanNa`:
-- `PROFILE_USERNAME = StefanNa`
-- `TARGET_REPO = StefanNa/MySportacus`
+- `PROFILE_USERNAME`
+- `TARGET_REPO`
+- `PROFILE_TZ` (IANA timezone, used for local 08:00 + 20:00 schedule)
 
-Important: do not create variables starting with `GITHUB_` (GitHub blocks that).
+## Optional profile repo secret
 
-### 5. Optional secret
+- `GH_PAT` (fallback; default `GITHUB_TOKEN` is preferred)
 
-Only if needed:
-- `GH_PAT` (Personal Access Token)
+## Optional push-trigger from TARGET_REPO
 
-Most cases work with default `GITHUB_TOKEN` only.
+Add this workflow to your target repo as `.github/workflows/dispatch-profile-graph.yml`:
 
-### 6. Commit and push profile repo
+```yaml
+name: Dispatch Profile Workout Graph Update
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip if token is missing
+        if: ${{ secrets.PROFILE_REPO_DISPATCH_TOKEN == '' }}
+        run: |
+          echo "PROFILE_REPO_DISPATCH_TOKEN is not set."
+
+      - name: Dispatch profile workflow
+        if: ${{ secrets.PROFILE_REPO_DISPATCH_TOKEN != '' }}
+        env:
+          DISPATCH_TOKEN: ${{ secrets.PROFILE_REPO_DISPATCH_TOKEN }}
+        run: |
+          curl -fsSL -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${DISPATCH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/<username>/<username>/dispatches \
+            -d '{"event_type":"workout-graph-update","client_payload":{"target_repo":"<owner>/<repo>"}}'
+```
+
+## Local test
 
 ```bash
-cd /home/stefan/projects/StefanNa
-git add .
-git commit -m "Add purple contribution graph automation"
-git push
+export GITHUB_USERNAME="<username>"
+export TARGET_REPO="<owner>/<repo>"
+export GH_PAT="<token>" # optional
+node scripts/profile-graph/generate.mjs
 ```
-
-### 7. Run workflow once manually
-
-On GitHub:
-- open `StefanNa/StefanNa`
-- go to `Actions`
-- run `Update Purple Contribution Graph` via `Run workflow`
-
-First successful run should generate/refresh:
-- `assets/github-contribution-purple.svg`
-
-## What your log means
-
-If the job says:
-- `Wrote .../assets/github-contribution-purple.svg`
-- then `No SVG changes to commit`
-
-That means the generated file content matched what was already in git on that run.
-This is normal and not an error.
-
-## Why graph may still not show on profile page
-
-Check these in order:
-1. Repo is exactly `StefanNa/StefanNa`.
-2. Repo is public.
-3. `README.md` exists on default branch.
-4. `README.md` contains `![...](./assets/github-contribution-purple.svg)`.
-5. `assets/github-contribution-purple.svg` exists in the same repo/branch.
-6. Browser cache is refreshed (hard refresh).
-
-## Trigger behavior
-
-- Daily auto-run: `02:17 UTC`
-- Manual run: anytime from Actions tab
-
-## Local test command
-
-```bash
-cd /home/stefan/projects/StefanNa
-export GITHUB_USERNAME="StefanNa"
-export TARGET_REPO="StefanNa/MySportacus"
-export GH_PAT="your_token" # optional if GITHUB_TOKEN unavailable
-npm run generate
-```
-
-## Files in this scaffold
-
-- `scripts/profile-graph/generate.mjs`: entrypoint
-- `scripts/profile-graph/graphql.mjs`: GitHub GraphQL fetch/normalize
-- `scripts/profile-graph/renderSvg.mjs`: SVG rendering
-- `.github/workflows/update-profile-graph.yml`: automation workflow
-- `assets/github-contribution-purple.svg`: generated output

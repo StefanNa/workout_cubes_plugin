@@ -24,6 +24,7 @@ cp tools/workout_cubes_plugin/.github/workflows/update-profile-graph.yml .github
 ./tools/workout_cubes_plugin/scripts/setup/bootstrap.sh \
   --profile-repo <username>/<username> \
   --target-repo <owner>/<repo> \
+  --target-repo-label <display-name> \
   --tz Europe/Berlin
 ```
 
@@ -33,15 +34,21 @@ cp tools/workout_cubes_plugin/.github/workflows/update-profile-graph.yml .github
 ## Workout Contribution Graph
 ![Workout contribution graph](./assets/github-contribution-purple.svg)
 
-Green = non-target repo activity  
-Neon purple = commits to <owner>/<repo>
+Green = activity in every other repository  
+Neon purple = activity in <display-name>  
+Highlighted repo: [<repo-name>](https://github.com/<owner>/<repo>)
 ```
 
 ## Required profile repo variables
 
 - `PROFILE_USERNAME`
 - `TARGET_REPO`
+- `TARGET_REPO_LABEL` (display label shown in SVG legend; defaults to repo name from `TARGET_REPO`)
 - `PROFILE_TZ` (IANA timezone, used for local 08:00 + 20:00 schedule)
+
+## Optional profile repo variables
+
+- `ANY_REPO_LABEL` (green legend label, default: `Other repos`)
 
 ## Optional profile repo secret
 

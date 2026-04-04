@@ -20,12 +20,12 @@ const CELL_SIZE = 10;
 const CELL_GAP = 3;
 const CARD_LEFT = 18;
 const GRID_LEFT = 30;
-const GRID_TOP = 128;
+const GRID_TOP = 146;
 const WEEKDAY_LABEL_WIDTH = 28;
 const RIGHT_PADDING = 24;
 const BOTTOM_PADDING = 40;
-const HEADER_HEIGHT = 74;
-const STATS_TOP = 66;
+const HEADER_HEIGHT = 96;
+const STATS_TOP = 86;
 const STATS_HEIGHT = 40;
 
 function escapeXml(value) {
@@ -153,6 +153,10 @@ function createStatCards(stats, theme, gridWidth) {
     .join('\n');
 }
 
+function estimateTextWidth(label, fontSize = 9) {
+  return Math.ceil(String(label).length * fontSize * 0.62);
+}
+
 export function renderContributionSvg(data, options = {}) {
   const theme = { ...DEFAULT_THEME, ...(options.theme || {}) };
   const targetRepoLabel = options.targetRepoLabel || 'target repo';
@@ -195,8 +199,24 @@ export function renderContributionSvg(data, options = {}) {
   }
 
   const legendRight = GRID_LEFT + WEEKDAY_LABEL_WIDTH + gridWidth;
-  const legendX = Math.max(CARD_LEFT, legendRight - 216);
+  const legendGap = 18;
+  const greenLabelWidth = estimateTextWidth(anyRepoLabel);
+  const purpleLabelWidth = estimateTextWidth(targetRepoLabel);
+  const greenSwatchWidth = theme.greenRamp.length * 10 + (theme.greenRamp.length - 1) * 3;
+  const purpleSwatchWidth = theme.purpleRamp.length * 10 + (theme.purpleRamp.length - 1) * 3;
+  const legendWidth =
+    greenLabelWidth +
+    12 +
+    greenSwatchWidth +
+    legendGap +
+    purpleLabelWidth +
+    12 +
+    purpleSwatchWidth;
+  const legendX = Math.max(CARD_LEFT, legendRight - legendWidth);
   const legendY = GRID_TOP + gridHeight + 24;
+  const greenSwatchX = legendX + greenLabelWidth + 12;
+  const purpleLabelX = greenSwatchX + greenSwatchWidth + legendGap;
+  const purpleSwatchX = purpleLabelX + purpleLabelWidth + 12;
   const headerRepo = data.meta?.targetRepo || 'owner/repo';
   const titleText = `${targetRepoLabel} Activity`;
   const subtitleText = `${data.meta?.username || 'user'} · ${headerRepo} · ${formatWindowLabel(
@@ -208,14 +228,14 @@ export function renderContributionSvg(data, options = {}) {
   const greenLegend = theme.greenRamp
     .map(
       (color, index) =>
-        `<rect x="${legendX + 72 + index * 13}" y="${legendY - 8}" width="10" height="10" rx="3" fill="${color}" stroke="rgba(255,255,255,0.05)" />`
+        `<rect x="${greenSwatchX + index * 13}" y="${legendY - 8}" width="10" height="10" rx="3" fill="${color}" stroke="rgba(255,255,255,0.05)" />`
     )
     .join('');
 
   const purpleLegend = theme.purpleRamp
     .map(
       (color, index) =>
-        `<rect x="${legendX + 176 + index * 13}" y="${legendY - 8}" width="10" height="10" rx="3" fill="${color}" stroke="rgba(255,255,255,0.05)" />`
+        `<rect x="${purpleSwatchX + index * 13}" y="${legendY - 8}" width="10" height="10" rx="3" fill="${color}" stroke="rgba(255,255,255,0.05)" />`
     )
     .join('');
 
@@ -247,15 +267,15 @@ export function renderContributionSvg(data, options = {}) {
   <rect x="${CARD_LEFT}" y="16" width="${svgWidth - CARD_LEFT * 2}" height="${HEADER_HEIGHT}" fill="url(#headerGlow)" rx="18" />
 
   <text x="${CARD_LEFT + 16}" y="38" font-family="${FONT_SANS}" font-size="9" font-weight="700" fill="${theme.accent}" letter-spacing="1.2">TARGET REPO OVERLAY</text>
-  <text x="${CARD_LEFT + 16}" y="59" font-family="${FONT_DISPLAY}" font-size="24" font-weight="700" fill="${theme.text}">${escapeXml(titleText)}</text>
-  <text x="${CARD_LEFT + 16}" y="78" font-family="${FONT_SANS}" font-size="10" fill="${theme.subtleText}">${escapeXml(subtitleText)}</text>
+  <text x="${CARD_LEFT + 16}" y="56" font-family="${FONT_DISPLAY}" font-size="24" font-weight="700" fill="${theme.text}">${escapeXml(titleText)}</text>
+  <text x="${CARD_LEFT + 16}" y="72" font-family="${FONT_SANS}" font-size="10" fill="${theme.subtleText}">${escapeXml(subtitleText)}</text>
 
   ${cards}
 
   ${monthLabels
     .map(
       (label) =>
-        `<text x="${label.x}" y="${GRID_TOP - 10}" font-family="${FONT_SANS}" font-size="9" font-weight="600" fill="${theme.subtleText}" letter-spacing="0.4">${escapeXml(label.text)}</text>`
+        `<text x="${label.x}" y="${GRID_TOP - 12}" font-family="${FONT_SANS}" font-size="9" font-weight="600" fill="${theme.subtleText}" letter-spacing="0.4">${escapeXml(label.text)}</text>`
     )
     .join('\n  ')}
 
@@ -270,7 +290,7 @@ export function renderContributionSvg(data, options = {}) {
 
   <text x="${legendX}" y="${legendY}" font-family="${FONT_SANS}" font-size="9" font-weight="600" fill="${theme.subtleText}">${escapeXml(anyRepoLabel)}</text>
   ${greenLegend}
-  <text x="${legendX + 104}" y="${legendY}" font-family="${FONT_SANS}" font-size="9" font-weight="600" fill="${theme.subtleText}">${escapeXml(targetRepoLabel)}</text>
+  <text x="${purpleLabelX}" y="${legendY}" font-family="${FONT_SANS}" font-size="9" font-weight="600" fill="${theme.subtleText}">${escapeXml(targetRepoLabel)}</text>
   ${purpleLegend}
 </svg>`;
 }

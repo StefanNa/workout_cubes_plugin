@@ -1,21 +1,32 @@
 const DEFAULT_THEME = {
-  background: '#0d1117',
-  text: '#c9d1d9',
-  subtleText: '#8b949e',
-  empty: '#161b22',
-  greenRamp: ['#0e4429', '#006d32', '#26a641', '#39d353'],
-  purpleRamp: ['#5b1178', '#7b1fa2', '#a21caf', '#d946ef'],
+  bgStart: '#07111f',
+  bgEnd: '#111826',
+  panel: '#0f1a2b',
+  panelHighlight: '#16243a',
+  panelStroke: '#24344b',
+  text: '#e8eef8',
+  subtleText: '#99abc4',
+  accent: '#d06cff',
+  accentSoft: '#7a4de8',
+  empty: '#132033',
+  emptyStroke: '#1b2a42',
+  greenRamp: ['#203c39', '#245652', '#2f7269', '#4ba28f'],
+  purpleRamp: ['#5f3fd6', '#8c48e5', '#b55df5', '#e087ff'],
 };
 
+const FONT_SANS = 'Avenir Next, Segoe UI, Helvetica Neue, Arial, sans-serif';
+const FONT_DISPLAY = 'Avenir Next Condensed, Trebuchet MS, Segoe UI, sans-serif';
 const CELL_SIZE = 10;
 const CELL_GAP = 3;
-const GRID_LEFT = 40;
-const HEADER_Y = 18;
-const MONTH_LABEL_Y = 34;
-const GRID_TOP = 44;
+const CARD_LEFT = 18;
+const GRID_LEFT = 30;
+const GRID_TOP = 128;
 const WEEKDAY_LABEL_WIDTH = 28;
-const RIGHT_PADDING = 22;
-const BOTTOM_PADDING = 46;
+const RIGHT_PADDING = 24;
+const BOTTOM_PADDING = 40;
+const HEADER_HEIGHT = 74;
+const STATS_TOP = 66;
+const STATS_HEIGHT = 40;
 
 function escapeXml(value) {
   return String(value)
@@ -36,18 +47,30 @@ function clampRampIndex(count, maxCount, rampLength) {
   return Math.max(0, Math.min(rampLength - 1, index));
 }
 
-function dayColor(day, theme, maxGreen, maxPurple) {
+function dayPresentation(day, theme, maxGreen, maxPurple) {
   if (day.totalContributionCount <= 0) {
-    return theme.empty;
+    return {
+      fill: theme.empty,
+      stroke: theme.emptyStroke,
+      kind: 'empty',
+    };
   }
 
   if (day.targetRepoContributionCount > 0) {
     const idx = clampRampIndex(day.targetRepoContributionCount, maxPurple || 1, theme.purpleRamp.length);
-    return theme.purpleRamp[idx];
+    return {
+      fill: theme.purpleRamp[idx],
+      stroke: 'rgba(255,255,255,0.08)',
+      kind: 'target',
+    };
   }
 
   const idx = clampRampIndex(day.totalContributionCount, maxGreen || 1, theme.greenRamp.length);
-  return theme.greenRamp[idx];
+  return {
+    fill: theme.greenRamp[idx],
+    stroke: 'rgba(255,255,255,0.04)',
+    kind: 'other',
+  };
 }
 
 function monthKey(dateString) {
@@ -57,7 +80,7 @@ function monthKey(dateString) {
   return dateString.slice(0, 7);
 }
 
-function buildMonthLabels(months, weeks) {
+export function buildMonthLabels(months, weeks) {
   const visibleColumnByMonth = new Map();
 
   for (let col = 0; col < weeks.length; col += 1) {
@@ -72,7 +95,7 @@ function buildMonthLabels(months, weeks) {
 
   const labels = [];
   let lastX = Number.NEGATIVE_INFINITY;
-  const minGap = CELL_SIZE + CELL_GAP + 2;
+  const minGap = CELL_SIZE + CELL_GAP + 6;
 
   for (const month of months || []) {
     const key = monthKey(month.firstDay);
@@ -96,18 +119,53 @@ function buildMonthLabels(months, weeks) {
   return labels;
 }
 
+function formatWindowLabel(fromDateKey, toDateKey) {
+  return `${fromDateKey} to ${toDateKey}`;
+}
+
+function createStatCards(stats, theme, gridWidth) {
+  const cards = [
+    {
+      label: 'Target Days',
+      value: String(stats.totalTargetDays ?? 0),
+    },
+    {
+      label: 'Last 30 Days',
+      value: String(stats.last30TargetDays ?? 0),
+    },
+    {
+      label: 'Current Streak',
+      value: `${stats.currentStreak ?? 0}d`,
+    },
+  ];
+
+  const gap = 10;
+  const cardWidth = Math.floor((gridWidth - gap * 2) / 3);
+
+  return cards
+    .map((card, index) => {
+      const x = CARD_LEFT + index * (cardWidth + gap);
+      return `
+  <rect x="${x}" y="${STATS_TOP}" width="${cardWidth}" height="${STATS_HEIGHT}" rx="12" fill="${theme.panel}" stroke="${theme.panelStroke}" />
+  <text x="${x + 12}" y="${STATS_TOP + 16}" font-family="${FONT_SANS}" font-size="9" font-weight="600" fill="${theme.subtleText}" letter-spacing="0.7">${escapeXml(card.label.toUpperCase())}</text>
+  <text x="${x + 12}" y="${STATS_TOP + 31}" font-family="${FONT_DISPLAY}" font-size="18" font-weight="700" fill="${theme.text}">${escapeXml(card.value)}</text>`;
+    })
+    .join('\n');
+}
+
 export function renderContributionSvg(data, options = {}) {
   const theme = { ...DEFAULT_THEME, ...(options.theme || {}) };
   const targetRepoLabel = options.targetRepoLabel || 'target repo';
   const anyRepoLabel = options.anyRepoLabel || 'Other repos';
   const weeks = data.weeks || [];
+  const stats = data.stats || {};
   const weekCount = weeks.length;
 
   const gridWidth = weekCount * (CELL_SIZE + CELL_GAP) - CELL_GAP;
   const gridHeight = 7 * (CELL_SIZE + CELL_GAP) - CELL_GAP;
-  const svgWidth = GRID_LEFT + WEEKDAY_LABEL_WIDTH + gridWidth + RIGHT_PADDING;
+  const baseWidth = GRID_LEFT + WEEKDAY_LABEL_WIDTH + gridWidth + RIGHT_PADDING;
+  const svgWidth = Math.max(baseWidth, CARD_LEFT * 2 + 348);
   const svgHeight = GRID_TOP + gridHeight + BOTTOM_PADDING;
-
   const monthLabels = buildMonthLabels(data.months, weeks);
 
   const weekdayLabels = [
@@ -123,55 +181,96 @@ export function renderContributionSvg(data, options = {}) {
       const day = week.contributionDays[row];
       const x = GRID_LEFT + WEEKDAY_LABEL_WIDTH + col * (CELL_SIZE + CELL_GAP);
       const y = GRID_TOP + row * (CELL_SIZE + CELL_GAP);
-      const fill = dayColor(day, theme, data.maxGreen, data.maxPurple);
+      const presentation = dayPresentation(day, theme, data.maxGreen, data.maxPurple);
       const title = `${day.date}: ${day.totalContributionCount} total, ${day.targetRepoContributionCount} target-repo`;
+      const glow =
+        presentation.kind === 'target'
+          ? `<rect x="${x - 1}" y="${y - 1}" width="${CELL_SIZE + 2}" height="${CELL_SIZE + 2}" rx="4" fill="${presentation.fill}" opacity="0.24" filter="url(#targetGlow)" />`
+          : '';
 
       cells.push(
-        `<rect x="${x}" y="${y}" width="${CELL_SIZE}" height="${CELL_SIZE}" rx="2" ry="2" fill="${fill}"><title>${escapeXml(title)}</title></rect>`
+        `${glow}<rect x="${x}" y="${y}" width="${CELL_SIZE}" height="${CELL_SIZE}" rx="3" ry="3" fill="${presentation.fill}" stroke="${presentation.stroke}" stroke-width="0.6"><title>${escapeXml(title)}</title></rect>`
       );
     }
   }
 
   const legendRight = GRID_LEFT + WEEKDAY_LABEL_WIDTH + gridWidth;
-  const legendX = Math.max(GRID_LEFT + 2, legendRight - 210);
+  const legendX = Math.max(CARD_LEFT, legendRight - 216);
   const legendY = GRID_TOP + gridHeight + 24;
+  const headerRepo = data.meta?.targetRepo || 'owner/repo';
+  const titleText = `${targetRepoLabel} Activity`;
+  const subtitleText = `${data.meta?.username || 'user'} · ${headerRepo} · ${formatWindowLabel(
+    data.meta?.from || '',
+    data.meta?.to || ''
+  )}`;
+  const cards = createStatCards(stats, theme, svgWidth - CARD_LEFT * 2);
 
   const greenLegend = theme.greenRamp
-    .map((color, i) => `<rect x="${legendX + 58 + i * 13}" y="${legendY - 8}" width="10" height="10" rx="2" fill="${color}" />`)
+    .map(
+      (color, index) =>
+        `<rect x="${legendX + 72 + index * 13}" y="${legendY - 8}" width="10" height="10" rx="3" fill="${color}" stroke="rgba(255,255,255,0.05)" />`
+    )
     .join('');
 
   const purpleLegend = theme.purpleRamp
-    .map((color, i) => `<rect x="${legendX + 158 + i * 13}" y="${legendY - 8}" width="10" height="10" rx="2" fill="${color}" />`)
+    .map(
+      (color, index) =>
+        `<rect x="${legendX + 176 + index * 13}" y="${legendY - 8}" width="10" height="10" rx="3" fill="${color}" stroke="rgba(255,255,255,0.05)" />`
+    )
     .join('');
-
-  const header = `${data.meta?.username || 'user'} · ${data.meta?.targetRepo || 'owner/repo'}`;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" role="img" aria-labelledby="title desc">
   <title id="title">Workout contribution graph</title>
   <desc id="desc">GitHub-style contribution calendar. Green cells are activity in other repositories, purple cells highlight ${escapeXml(targetRepoLabel)}.</desc>
-  <rect width="100%" height="100%" fill="${theme.background}" rx="8" />
-  <text x="16" y="${HEADER_Y}" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="11" fill="${theme.text}">${escapeXml(header)}</text>
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${theme.bgStart}" />
+      <stop offset="100%" stop-color="${theme.bgEnd}" />
+    </linearGradient>
+    <radialGradient id="headerGlow" cx="82%" cy="10%" r="65%">
+      <stop offset="0%" stop-color="${theme.accent}" stop-opacity="0.26" />
+      <stop offset="100%" stop-color="${theme.accent}" stop-opacity="0" />
+    </radialGradient>
+    <filter id="targetGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="1.8" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="100%" height="100%" fill="url(#bgGradient)" rx="18" />
+  <rect x="1" y="1" width="${svgWidth - 2}" height="${svgHeight - 2}" fill="none" stroke="rgba(255,255,255,0.06)" rx="17" />
+  <rect x="${CARD_LEFT}" y="16" width="${svgWidth - CARD_LEFT * 2}" height="${HEADER_HEIGHT}" fill="${theme.panelHighlight}" fill-opacity="0.74" stroke="${theme.panelStroke}" rx="18" />
+  <rect x="${CARD_LEFT}" y="16" width="${svgWidth - CARD_LEFT * 2}" height="${HEADER_HEIGHT}" fill="url(#headerGlow)" rx="18" />
+
+  <text x="${CARD_LEFT + 16}" y="38" font-family="${FONT_SANS}" font-size="9" font-weight="700" fill="${theme.accent}" letter-spacing="1.2">TARGET REPO OVERLAY</text>
+  <text x="${CARD_LEFT + 16}" y="59" font-family="${FONT_DISPLAY}" font-size="24" font-weight="700" fill="${theme.text}">${escapeXml(titleText)}</text>
+  <text x="${CARD_LEFT + 16}" y="78" font-family="${FONT_SANS}" font-size="10" fill="${theme.subtleText}">${escapeXml(subtitleText)}</text>
+
+  ${cards}
 
   ${monthLabels
     .map(
       (label) =>
-        `<text x="${label.x}" y="${MONTH_LABEL_Y}" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="9" fill="${theme.subtleText}">${escapeXml(label.text)}</text>`
+        `<text x="${label.x}" y="${GRID_TOP - 10}" font-family="${FONT_SANS}" font-size="9" font-weight="600" fill="${theme.subtleText}" letter-spacing="0.4">${escapeXml(label.text)}</text>`
     )
     .join('\n  ')}
 
   ${weekdayLabels
     .map((label) => {
       const y = GRID_TOP + label.row * (CELL_SIZE + CELL_GAP) + 8;
-      return `<text x="${GRID_LEFT}" y="${y}" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="9" fill="${theme.subtleText}">${label.text}</text>`;
+      return `<text x="${GRID_LEFT}" y="${y}" font-family="${FONT_SANS}" font-size="9" fill="${theme.subtleText}">${label.text}</text>`;
     })
     .join('\n  ')}
 
   ${cells.join('\n  ')}
 
-  <text x="${legendX}" y="${legendY}" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="9" fill="${theme.subtleText}">${escapeXml(anyRepoLabel)}</text>
+  <text x="${legendX}" y="${legendY}" font-family="${FONT_SANS}" font-size="9" font-weight="600" fill="${theme.subtleText}">${escapeXml(anyRepoLabel)}</text>
   ${greenLegend}
+  <text x="${legendX + 104}" y="${legendY}" font-family="${FONT_SANS}" font-size="9" font-weight="600" fill="${theme.subtleText}">${escapeXml(targetRepoLabel)}</text>
   ${purpleLegend}
-  <text x="${legendX + 114}" y="${legendY}" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="9" fill="${theme.subtleText}">${escapeXml(targetRepoLabel)}</text>
 </svg>`;
 }

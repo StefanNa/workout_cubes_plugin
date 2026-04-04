@@ -56,11 +56,10 @@ async function main() {
     await fs.writeFile(outputPath, svg, 'utf8');
     console.log(`Wrote ${outputPath}`);
     console.log(`Window: ${data.meta.from} -> ${data.meta.to}`);
-
-    if (!data.meta.isTargetRepoVisibleInContributionData) {
-      console.warn('Target repo was not visible in contribution data for this window.');
-    }
-
+    console.log(`Target commit count: ${data.meta.targetCommitCount}`);
+    console.log(
+      `Stats: totalDays=${data.stats.totalTargetDays}, last30Days=${data.stats.last30TargetDays}, currentStreak=${data.stats.currentStreak}`
+    );
     console.log(`Legend labels: green="${anyRepoLabel}", purple="${targetRepoLabel}"`);
   } catch (error) {
     console.error('Failed to generate contribution SVG.');

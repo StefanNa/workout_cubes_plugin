@@ -5,7 +5,8 @@
   "description": "Generate a GitHub-style contribution SVG that highlights target-repo commits in neon purple",
   "type": "module",
   "scripts": {
-    "generate": "node scripts/profile-graph/generate.mjs"
+    "generate": "node scripts/profile-graph/generate.mjs",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=20"

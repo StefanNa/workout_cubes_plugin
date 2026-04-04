@@ -62,13 +62,28 @@ jobs:
         env:
           GITHUB_USERNAME: ${{ vars.PROFILE_USERNAME }}
           TARGET_REPO: ${{ github.event.client_payload.target_repo || vars.TARGET_REPO }}
+          TARGET_REPO_LABEL: ${{ vars.TARGET_REPO_LABEL }}
+          ANY_REPO_LABEL: ${{ vars.ANY_REPO_LABEL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_PAT: ${{ secrets.GH_PAT }}
         run: node tools/workout_cubes_plugin/scripts/profile-graph/generate.mjs
 
+      - name: Debug SVG proof
+        if: ${{ steps.schedule_gate.outputs.should_run == 'true' }}
+        env:
+          TARGET_REPO_LABEL: ${{ vars.TARGET_REPO_LABEL }}
+          ANY_REPO_LABEL: ${{ vars.ANY_REPO_LABEL }}
+        run: |
+          set -euo pipefail
+          svg_path="assets/github-contribution-purple.svg"
+          echo "SVG path: ${svg_path}"
+          echo "SVG sha256: $(sha256sum "${svg_path}" | awk '{print $1}')"
+          echo "Legend labels: green='${ANY_REPO_LABEL:-Other repos}' purple='${TARGET_REPO_LABEL:-auto}'"
+
       - name: Commit and push if changed
         if: ${{ steps.schedule_gate.outputs.should_run == 'true' }}
         run: |
+          set -euo pipefail
           git add assets/github-contribution-purple.svg
 
           if git diff --cached --quiet; then
@@ -79,4 +94,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "chore(profile): update purple contribution graph"
-          git push
+          branch="${GITHUB_REF_NAME:-master}"
+          git pull --rebase origin "${branch}"
+          git push origin "HEAD:${branch}"

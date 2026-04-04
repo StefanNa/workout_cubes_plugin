@@ -4,6 +4,7 @@ set -euo pipefail
 PROFILE_REPO=""
 TARGET_REPO=""
 TARGET_REPO_LABEL=""
+ANY_REPO_LABEL="Other repos"
 PROFILE_USERNAME=""
 PROFILE_TZ="Europe/Berlin"
 
@@ -14,6 +15,7 @@ Usage:
     --profile-repo owner/profileRepo \
     --target-repo owner/targetRepo \
     [--target-repo-label label] \
+    [--any-repo-label label] \
     [--profile-username username] \
     [--tz IANA_TIMEZONE]
 
@@ -22,6 +24,7 @@ Example:
     --profile-repo StefanNa/StefanNa \
     --target-repo StefanNa/MySportacus \
     --target-repo-label Sportacus \
+    --any-repo-label "Other repos" \
     --profile-username StefanNa \
     --tz Europe/Berlin
 USAGE
@@ -39,6 +42,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --target-repo-label)
       TARGET_REPO_LABEL="${2:-}"
+      shift 2
+      ;;
+    --any-repo-label)
+      ANY_REPO_LABEL="${2:-}"
       shift 2
       ;;
     --profile-username)
@@ -79,6 +86,7 @@ echo "Configuring ${PROFILE_REPO} ..."
 gh variable set PROFILE_USERNAME -R "${PROFILE_REPO}" -b "${PROFILE_USERNAME}"
 gh variable set TARGET_REPO -R "${PROFILE_REPO}" -b "${TARGET_REPO}"
 gh variable set TARGET_REPO_LABEL -R "${PROFILE_REPO}" -b "${TARGET_REPO_LABEL}"
+gh variable set ANY_REPO_LABEL -R "${PROFILE_REPO}" -b "${ANY_REPO_LABEL}"
 gh variable set PROFILE_TZ -R "${PROFILE_REPO}" -b "${PROFILE_TZ}"
 
 echo
@@ -86,6 +94,7 @@ echo "Configured variables:"
 echo "  PROFILE_USERNAME=${PROFILE_USERNAME}"
 echo "  TARGET_REPO=${TARGET_REPO}"
 echo "  TARGET_REPO_LABEL=${TARGET_REPO_LABEL}"
+echo "  ANY_REPO_LABEL=${ANY_REPO_LABEL}"
 echo "  PROFILE_TZ=${PROFILE_TZ}"
 
 echo

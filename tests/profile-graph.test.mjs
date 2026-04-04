@@ -126,7 +126,7 @@ test('fetchContributionData paginates target repo commits and computes stats', a
   assert.equal(data.dailyIndex['2026-03-01'].targetRepoContributionCount, 31);
   assert.equal(data.stats.totalTargetDays, 3);
   assert.equal(data.stats.last30TargetDays, 3);
-  assert.equal(data.stats.currentStreak, 3);
+  assert.equal(data.stats.currentStreak, 1);
   assert.equal(data.stats.lastTargetActivityDate, '2026-03-01');
 });
 
@@ -192,6 +192,46 @@ test('buildMonthLabels keeps visible month labels spaced apart', () => {
   }
 });
 
+test('current streak skips an incomplete week until it reaches two target days', async () => {
+  const calendar = createContributionCalendar({
+    '2026-02-22': 1,
+    '2026-02-24': 1,
+    '2026-03-01': 1,
+  });
+
+  const commits = [
+    createCommit('2026-02-22T09:00:00.000Z', 'week-a'),
+    createCommit('2026-02-24T09:00:00.000Z', 'week-b'),
+    createCommit('2026-03-01T09:00:00.000Z', 'current-week-a'),
+  ];
+
+  const mockFetch = async (url) => {
+    if (String(url).includes('/graphql')) {
+      return createJsonResponse({
+        data: {
+          user: {
+            contributionsCollection: {
+              contributionCalendar: calendar,
+            },
+          },
+        },
+      });
+    }
+
+    return createJsonResponse(commits);
+  };
+
+  const data = await fetchContributionData({
+    username: 'StefanNa',
+    targetRepo: 'StefanNa/MySportacus',
+    token: 'test-token',
+    fetchImpl: mockFetch,
+    now: new Date('2026-03-03T12:00:00.000Z'),
+  });
+
+  assert.equal(data.stats.currentStreak, 1);
+});
+
 test('renderContributionSvg includes dashboard stats, legend labels, and target styling', () => {
   const svg = renderContributionSvg(
     {
@@ -243,9 +283,10 @@ test('renderContributionSvg includes dashboard stats, legend labels, and target 
   assert.match(svg, /TARGET REPO OVERLAY/);
   assert.match(svg, /TARGET DAYS/);
   assert.match(svg, /LAST 30 DAYS/);
-  assert.match(svg, /CURRENT STREAK/);
+  assert.match(svg, /2X\/WEEK STREAK/);
   assert.match(svg, /Sportacus Activity/);
   assert.match(svg, /Other repos/);
   assert.match(svg, /filter="url\(#targetGlow\)"/);
   assert.match(svg, /Sportacus/);
+  assert.match(svg, />2w</);
 });

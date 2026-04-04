@@ -134,8 +134,8 @@ function createStatCards(stats, theme, gridWidth) {
       value: String(stats.last30TargetDays ?? 0),
     },
     {
-      label: 'Current Streak',
-      value: `${stats.currentStreak ?? 0}d`,
+      label: '2x/Week Streak',
+      value: `${stats.currentStreak ?? 0}w`,
     },
   ];
 

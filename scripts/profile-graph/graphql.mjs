@@ -148,6 +148,16 @@ function flattenDays(weeks) {
   return weeks.flatMap((week) => week.contributionDays);
 }
 
+function weekEndKey(firstDay) {
+  const end = new Date(`${firstDay}T00:00:00.000Z`);
+  end.setUTCDate(end.getUTCDate() + 6);
+  return isoDate(end);
+}
+
+function weeklyTargetDayCount(week) {
+  return week.contributionDays.filter((day) => day.targetRepoContributionCount > 0).length;
+}
+
 export function computeTargetStats(weeks, toDateKey) {
   const days = flattenDays(weeks).slice().sort((left, right) => left.date.localeCompare(right.date));
   const totalTargetDays = days.filter((day) => day.targetRepoContributionCount > 0).length;
@@ -160,18 +170,23 @@ export function computeTargetStats(weeks, toDateKey) {
     (day) => day.date >= last30StartKey && day.date <= toDateKey && day.targetRepoContributionCount > 0
   ).length;
 
-  const byDate = new Map(days.map((day) => [day.date, day]));
   let currentStreak = 0;
-  const streakCursor = new Date(`${toDateKey}T00:00:00.000Z`);
+  let streakStartIndex = weeks.length - 1;
 
-  while (streakCursor >= new Date(`${days[0]?.date || toDateKey}T00:00:00.000Z`)) {
-    const cursorKey = isoDate(streakCursor);
-    const currentDay = byDate.get(cursorKey);
-    if (!currentDay || currentDay.targetRepoContributionCount <= 0) {
+  while (streakStartIndex >= 0) {
+    const trailingWeek = weeks[streakStartIndex];
+    const trailingWeekIsIncomplete = weekEndKey(trailingWeek.firstDay) > toDateKey;
+    if (!trailingWeekIsIncomplete || weeklyTargetDayCount(trailingWeek) >= 2) {
+      break;
+    }
+    streakStartIndex -= 1;
+  }
+
+  for (let index = streakStartIndex; index >= 0; index -= 1) {
+    if (weeklyTargetDayCount(weeks[index]) < 2) {
       break;
     }
     currentStreak += 1;
-    streakCursor.setUTCDate(streakCursor.getUTCDate() - 1);
   }
 
   const lastTargetActivityDate =

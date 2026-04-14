@@ -82,7 +82,7 @@ jobs:
           ANY_REPO_LABEL: ${{ vars.ANY_REPO_LABEL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_PAT: ${{ secrets.GH_PAT }}
-        run: node tools/workout_cubes_plugin/scripts/profile-graph/generate.mjs
+        run: node scripts/profile-graph/generate.mjs
 
       - name: Debug SVG proof
         if: ${{ steps.schedule_gate.outputs.should_run == 'true' }}
